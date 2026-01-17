@@ -87,21 +87,21 @@ export const POST: RequestHandler = async ({ request, cookies, platform }) => {
       throw error(500, 'Could not fetch historical data');
     }
 
-    // Save prices to database
-    for (const price of historicalPrices) {
-      await db
-        .insert(pricesDaily)
-        .values({
-          tickerId,
-          date: price.date.toISOString().split('T')[0],
-          open: price.open.toString(),
-          high: price.high.toString(),
-          low: price.low.toString(),
-          close: price.close.toString(),
-          volume: price.volume
-        })
-        .onConflictDoNothing();
-    }
+    // Save prices to database (batch insert to avoid subrequest limit)
+    const priceValues = historicalPrices.map(price => ({
+      tickerId,
+      date: price.date.toISOString().split('T')[0],
+      open: price.open.toString(),
+      high: price.high.toString(),
+      low: price.low.toString(),
+      close: price.close.toString(),
+      volume: price.volume
+    }));
+
+    await db
+      .insert(pricesDaily)
+      .values(priceValues)
+      .onConflictDoNothing();
 
     // Run Wyckoff analysis
     const wyckoffResult = detectWyckoffPhase(historicalPrices);
@@ -193,6 +193,8 @@ export const POST: RequestHandler = async ({ request, cookies, platform }) => {
     if (err && typeof err === 'object' && 'status' in err) {
       throw err;
     }
-    throw error(500, 'Failed to process stock search');
+    // Include error details for debugging
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    throw error(500, `Failed to process stock search: ${message}`);
   }
 };
