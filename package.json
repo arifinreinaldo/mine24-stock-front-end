@@ -13,7 +13,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "pages:build": "npm install && npm run build"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240815.0",
@@ -30,7 +31,8 @@
     "tslib": "^2.6.2",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3",
-    "vite": "^5.0.12"
+    "vite": "^5.0.12",
+    "wrangler": "^4.59.2"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.9.0",
