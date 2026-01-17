@@ -1,9 +1,0 @@
-name = "mine24-stock-dashboard"
-compatibility_date = "2024-01-01"
-compatibility_flags = ["nodejs_compat"]
-
-[vars]
-# Non-secret environment variables
-
-# Secrets should be set via `wrangler secret put`:
-# wrangler secret put DATABASE_URL
