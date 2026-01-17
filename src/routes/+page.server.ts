@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { getDb, searchHistory, wyckoffAnalysis, tickers, pricesDaily } from '$lib/server/db';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, inArray, sql } from 'drizzle-orm';
 import type { WyckoffPhase } from '$lib/server/db/schema';
 
 export const load: PageServerLoad = async ({ cookies, platform }) => {
@@ -29,53 +29,78 @@ export const load: PageServerLoad = async ({ cookies, platform }) => {
       return { stocks: [] };
     }
 
-    // Get Wyckoff analysis and latest prices for each stock
-    const stocks = await Promise.all(
-      history.map(async (h) => {
-        if (!h.tickerId) return null;
+    const tickerIds = history.map(h => h.tickerId).filter((id): id is number => id !== null);
 
-        // Get latest Wyckoff analysis
-        const analysis = await db
-          .select()
-          .from(wyckoffAnalysis)
-          .where(eq(wyckoffAnalysis.tickerId, h.tickerId))
-          .orderBy(desc(wyckoffAnalysis.date))
-          .limit(1);
+    if (tickerIds.length === 0) {
+      return { stocks: [] };
+    }
 
-        // Get latest price
-        const latestPrice = await db
-          .select()
-          .from(pricesDaily)
-          .where(eq(pricesDaily.tickerId, h.tickerId))
-          .orderBy(desc(pricesDaily.date))
-          .limit(2);
+    // Batch fetch all analyses and prices in single queries
+    const [allAnalyses, allPrices] = await Promise.all([
+      // Get latest analysis for each ticker using distinct on
+      db
+        .select()
+        .from(wyckoffAnalysis)
+        .where(inArray(wyckoffAnalysis.tickerId, tickerIds))
+        .orderBy(desc(wyckoffAnalysis.date)),
 
-        if (analysis.length === 0 || latestPrice.length === 0) {
-          return null;
-        }
+      // Get latest 2 prices for each ticker
+      db
+        .select()
+        .from(pricesDaily)
+        .where(inArray(pricesDaily.tickerId, tickerIds))
+        .orderBy(desc(pricesDaily.date))
+    ]);
 
-        const current = latestPrice[0];
-        const previous = latestPrice[1] || latestPrice[0];
+    // Group by tickerId
+    const analysisMap = new Map<number, typeof allAnalyses[0]>();
+    for (const a of allAnalyses) {
+      if (!analysisMap.has(a.tickerId)) {
+        analysisMap.set(a.tickerId, a);
+      }
+    }
 
-        const price = Number(current.close) || 0;
-        const prevClose = Number(previous.close) || price;
-        const change = price - prevClose;
-        const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+    const pricesMap = new Map<number, typeof allPrices>();
+    for (const p of allPrices) {
+      const existing = pricesMap.get(p.tickerId) || [];
+      if (existing.length < 2) {
+        existing.push(p);
+        pricesMap.set(p.tickerId, existing);
+      }
+    }
 
-        return {
-          symbol: h.symbol,
-          name: h.name || '',
-          price,
-          change,
-          changePercent,
-          phase: analysis[0].phase as WyckoffPhase,
-          subPhase: analysis[0].subPhase,
-          strength: Number(analysis[0].strength) || 0,
-          targetPrice: Number(analysis[0].targetPrice) || 0,
-          cutLossPrice: Number(analysis[0].cutLossPrice) || 0
-        };
-      })
-    );
+    // Build stocks array
+    const stocks = history.map(h => {
+      if (!h.tickerId) return null;
+
+      const analysis = analysisMap.get(h.tickerId);
+      const prices = pricesMap.get(h.tickerId) || [];
+
+      if (!analysis || prices.length === 0) {
+        return null;
+      }
+
+      const current = prices[0];
+      const previous = prices[1] || prices[0];
+
+      const price = Number(current.close) || 0;
+      const prevClose = Number(previous.close) || price;
+      const change = price - prevClose;
+      const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+
+      return {
+        symbol: h.symbol,
+        name: h.name || '',
+        price,
+        change,
+        changePercent,
+        phase: analysis.phase as WyckoffPhase,
+        subPhase: analysis.subPhase,
+        strength: Number(analysis.strength) || 0,
+        targetPrice: Number(analysis.targetPrice) || 0,
+        cutLossPrice: Number(analysis.cutLossPrice) || 0
+      };
+    });
 
     return {
       stocks: stocks.filter((s): s is NonNullable<typeof s> => s !== null)
