@@ -14,7 +14,8 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "seed": "tsx scripts/seed.ts",
-    "pages:build": "npm install && npm run build"
+    "pages:build": "npm install && npm run build",
+    "pages:deploy": "wrangler pages deploy .svelte-kit/cloudflare"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240815.0",
