@@ -1,0 +1,114 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg: #0f172a;
+    --color-bg-secondary: #1e293b;
+    --color-bg-tertiary: #334155;
+    --color-text: #f1f5f9;
+    --color-text-secondary: #94a3b8;
+    --color-border: #475569;
+    --color-accent: #3b82f6;
+    --color-positive: #10b981;
+    --color-negative: #ef4444;
+  }
+
+  html {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+  }
+
+  body {
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-slate-800 rounded-lg border border-slate-700 p-4;
+  }
+
+  .card-hover {
+    @apply card transition-all duration-200 hover:border-slate-600 hover:bg-slate-750;
+  }
+
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+  }
+
+  .btn-primary {
+    @apply btn bg-blue-600 text-white hover:bg-blue-700;
+  }
+
+  .btn-secondary {
+    @apply btn bg-slate-700 text-slate-200 hover:bg-slate-600;
+  }
+
+  .input {
+    @apply w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-slate-300 mb-1;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-accumulation {
+    @apply badge bg-emerald-900/50 text-emerald-400 border border-emerald-700;
+  }
+
+  .badge-markup {
+    @apply badge bg-blue-900/50 text-blue-400 border border-blue-700;
+  }
+
+  .badge-distribution {
+    @apply badge bg-amber-900/50 text-amber-400 border border-amber-700;
+  }
+
+  .badge-markdown {
+    @apply badge bg-red-900/50 text-red-400 border border-red-700;
+  }
+
+  .price-up {
+    @apply text-emerald-400;
+  }
+
+  .price-down {
+    @apply text-red-400;
+  }
+
+  .section-title {
+    @apply text-lg font-semibold text-slate-100 mb-4;
+  }
+}
+
+@layer utilities {
+  .bg-slate-750 {
+    background-color: #293548;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #475569 transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: #475569;
+    border-radius: 3px;
+  }
+}

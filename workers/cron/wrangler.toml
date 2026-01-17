@@ -1,0 +1,11 @@
+name = "mine24-stock-cron"
+main = "index.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Run daily at 16:00 UTC (23:00 WIB - after Jakarta market close)
+[triggers]
+crons = ["0 16 * * 1-5"]
+
+# Secrets should be set via `wrangler secret put`:
+# cd workers/cron && wrangler secret put DATABASE_URL
