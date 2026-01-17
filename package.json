@@ -15,7 +15,7 @@
     "db:studio": "drizzle-kit studio",
     "seed": "tsx scripts/seed.ts",
     "pages:build": "npm install && npm run build",
-    "pages:deploy": "wrangler pages deploy .svelte-kit/cloudflare"
+    "pages:deploy": "wrangler pages deploy .svelte-kit/cloudflare --project-name=mine24-stock-front-end"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240815.0",
