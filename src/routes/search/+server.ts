@@ -123,6 +123,8 @@ export const POST: RequestHandler = async ({ request, cookies, platform }) => {
     );
 
     const today = new Date().toISOString().split('T')[0];
+    console.log('[search] Wyckoff result - Phase:', wyckoffResult.phase, 'SubPhase:', wyckoffResult.subPhase, 'Strength:', wyckoffResult.strength);
+    console.log('[search] Reasoning:', wyckoffResult.reasoning);
 
     // Save Wyckoff analysis
     await db
