@@ -116,13 +116,16 @@ export async function fetchLatestQuote(symbol: string): Promise<StockQuote | nul
   // Check cache
   const cached = getCached<StockQuote>(cacheKey);
   if (cached) {
+    console.log(`[yahoo] Cache hit for ${normalizedSymbol}`);
     return cached;
   }
 
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(normalizedSymbol)}?interval=1d&range=1d`;
+    console.log(`[yahoo] Fetching quote from: ${url}`);
 
     const response = await fetch(url, { headers });
+    console.log(`[yahoo] Response status: ${response.status}`);
 
     if (!response.ok) {
       console.error(`Yahoo Finance API error: ${response.status}`);
@@ -134,6 +137,7 @@ export async function fetchLatestQuote(symbol: string): Promise<StockQuote | nul
     const meta = result?.meta;
 
     if (!meta) {
+      console.log(`[yahoo] No meta data in response for ${normalizedSymbol}`);
       return null;
     }
 

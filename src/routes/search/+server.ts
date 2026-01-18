@@ -32,6 +32,7 @@ export const POST: RequestHandler = async ({ request, cookies, platform }) => {
   });
 
   const normalizedSymbol = normalizeSymbol(symbol);
+  console.log('[search] Input symbol:', symbol, '-> Normalized:', normalizedSymbol);
 
   try {
     const db = getDb(platform);
@@ -45,7 +46,9 @@ export const POST: RequestHandler = async ({ request, cookies, platform }) => {
 
     // If ticker doesn't exist, fetch from Yahoo Finance and create it
     if (ticker.length === 0) {
+      console.log('[search] Ticker not in DB, fetching from Yahoo...');
       const quote = await fetchLatestQuote(normalizedSymbol);
+      console.log('[search] Yahoo quote result:', quote ? 'Found' : 'Not found');
 
       if (!quote) {
         throw error(404, `Stock ${normalizedSymbol} not found`);
