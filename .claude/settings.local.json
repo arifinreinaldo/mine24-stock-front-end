@@ -7,7 +7,9 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nFix package-lock.json sync issue\n\nRegenerated lock file to fix Cloudflare deployment error with postcss-load-config version mismatch.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git push:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nFix Cloudflare Pages build - remove lock file from git\n\n- Remove package-lock.json from git tracking \\(added to .gitignore\\)\n- Add wrangler as devDependency \\(required by adapter-cloudflare\\)\n- Add .npmrc for legacy-peer-deps\n- Add pages:build script\n\nCloudflare will generate lock file fresh on Linux, avoiding\ncross-platform native binary issues with Rollup.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(tree:*)",
+      "Bash(npm run check:*)"
     ]
   }
 }

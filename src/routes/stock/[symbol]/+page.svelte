@@ -12,6 +12,9 @@
   $: metrics = data.metrics;
   $: foreignFlow = data.foreignFlow;
 
+  // Determine if this is a bullish (long) or bearish (short) phase
+  $: isLongPosition = stock.phase === 'accumulation' || stock.phase === 'markup';
+
   function formatPrice(p: number): string {
     return new Intl.NumberFormat('id-ID').format(Math.round(p));
   }
@@ -22,6 +25,15 @@
   }
 
   $: changeClass = stock.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400';
+
+  // Calculate potential gain/loss based on position type
+  $: potentialGain = isLongPosition
+    ? ((stock.targetPrice - stock.price) / stock.price) * 100
+    : ((stock.price - stock.targetPrice) / stock.price) * 100;
+
+  $: potentialLoss = isLongPosition
+    ? ((stock.price - stock.cutLossPrice) / stock.price) * 100
+    : ((stock.cutLossPrice - stock.price) / stock.price) * 100;
 </script>
 
 <svelte:head>
@@ -62,25 +74,56 @@
     </div>
   </div>
 
+  <!-- Position Type Indicator -->
+  <div class="card">
+    <div class="flex items-center gap-3">
+      {#if isLongPosition}
+        <span class="text-sm font-medium px-3 py-1 rounded bg-emerald-500/20 text-emerald-400">LONG POSITION</span>
+        <span class="text-sm text-slate-400" title="Buy and hold - profit when price rises">
+          Buy recommendation - targets are upside price levels
+        </span>
+      {:else}
+        <span class="text-sm font-medium px-3 py-1 rounded bg-red-500/20 text-red-400">SHORT POSITION</span>
+        <span class="text-sm text-slate-400" title="Sell/avoid - profit when price falls">
+          Sell recommendation - targets are downside price levels
+        </span>
+      {/if}
+    </div>
+  </div>
+
   <!-- Key Metrics -->
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
     <div class="card">
-      <div class="text-sm text-slate-500 mb-1">Target Price</div>
-      <div class="text-xl font-semibold text-emerald-400">
+      <div
+        class="text-sm text-slate-500 mb-1 cursor-help"
+        title={isLongPosition
+          ? "Target price to take profit on long position"
+          : "Expected price drop target for short position"}
+      >
+        {isLongPosition ? 'Target Price' : 'Downside Target'}
+      </div>
+      <div class="text-xl font-semibold {isLongPosition ? 'text-emerald-400' : 'text-amber-400'}">
         Rp {formatPrice(stock.targetPrice)}
       </div>
       <div class="text-xs text-slate-500">
-        +{(((stock.targetPrice - stock.price) / stock.price) * 100).toFixed(1)}% potential
+        +{potentialGain.toFixed(1)}% potential
       </div>
     </div>
 
     <div class="card">
-      <div class="text-sm text-slate-500 mb-1">Cut Loss</div>
+      <div
+        class="text-sm text-slate-500 mb-1 cursor-help"
+        title={isLongPosition
+          ? "Exit price if trade goes against you"
+          : "Exit price if price rises against short position"}
+      >
+        {isLongPosition ? 'Cut Loss' : 'Stop Loss'}
+      </div>
       <div class="text-xl font-semibold text-red-400">
         Rp {formatPrice(stock.cutLossPrice)}
       </div>
       <div class="text-xs text-slate-500">
-        -{(((stock.price - stock.cutLossPrice) / stock.price) * 100).toFixed(1)}% risk
+        -{potentialLoss.toFixed(1)}% risk
       </div>
     </div>
 

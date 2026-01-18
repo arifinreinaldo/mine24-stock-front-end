@@ -37,28 +37,32 @@
       .slice(0, 10)
   };
 
-  const phaseConfig: Record<WyckoffPhase, { title: string; description: string; color: string; icon: string }> = {
+  const phaseConfig: Record<WyckoffPhase, { title: string; description: string; positionHint: string; color: string; icon: string }> = {
     accumulation: {
       title: 'Accumulation',
       description: 'Smart money buying, price consolidating at lows',
+      positionHint: 'Long position - buy opportunity',
       color: 'text-emerald-400 border-emerald-700 bg-emerald-900/20',
       icon: '📦'
     },
     markup: {
       title: 'Markup',
       description: 'Uptrend phase, price rising',
+      positionHint: 'Long position - hold or buy dips',
       color: 'text-blue-400 border-blue-700 bg-blue-900/20',
       icon: '📈'
     },
     distribution: {
       title: 'Distribution',
       description: 'Smart money selling, price consolidating at highs',
+      positionHint: 'Short position - take profit or avoid buying',
       color: 'text-amber-400 border-amber-700 bg-amber-900/20',
       icon: '📤'
     },
     markdown: {
       title: 'Markdown',
       description: 'Downtrend phase, price falling',
+      positionHint: 'Short position - avoid or sell',
       color: 'text-red-400 border-red-700 bg-red-900/20',
       icon: '📉'
     }
@@ -88,6 +92,7 @@
             <span class="text-sm opacity-70">({phaseStocks.length})</span>
           </div>
           <p class="text-sm opacity-70 mt-1">{config.description}</p>
+          <p class="text-xs mt-1 font-medium" title="Recommended position type for this phase">{config.positionHint}</p>
         </div>
 
         {#if phaseStocks.length === 0}

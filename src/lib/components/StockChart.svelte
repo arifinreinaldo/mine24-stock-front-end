@@ -32,6 +32,9 @@
     markdown: '#EF4444'
   };
 
+  // Determine if this is a bullish (long) or bearish (short) phase
+  $: isLongPosition = phase === 'accumulation' || phase === 'markup';
+
   onMount(async () => {
     if (!browser || prices.length === 0) return;
 
@@ -105,24 +108,26 @@
     }
 
     if (targetPrice) {
+      const isLong = phase === 'accumulation' || phase === 'markup';
       candleSeries.createPriceLine({
         price: targetPrice,
-        color: '#22C55E',
+        color: isLong ? '#22C55E' : '#F59E0B', // Green for long, amber for short
         lineWidth: 2,
         lineStyle: 0, // Solid
         axisLabelVisible: true,
-        title: 'Target'
+        title: isLong ? 'Target' : 'Downside'
       });
     }
 
     if (cutLossPrice) {
+      const isLong = phase === 'accumulation' || phase === 'markup';
       candleSeries.createPriceLine({
         price: cutLossPrice,
         color: '#DC2626',
         lineWidth: 2,
         lineStyle: 0,
         axisLabelVisible: true,
-        title: 'Cut Loss'
+        title: isLong ? 'Cut Loss' : 'Stop Loss'
       });
     }
 
@@ -232,15 +237,15 @@
     {/if}
     {#if targetPrice}
       <div class="flex items-center gap-2">
-        <span class="w-3 h-0.5 bg-green-500"></span>
-        <span class="text-slate-400">Target:</span>
-        <span class="text-green-400">{targetPrice.toLocaleString('id-ID')}</span>
+        <span class="w-3 h-0.5 {isLongPosition ? 'bg-green-500' : 'bg-amber-500'}"></span>
+        <span class="text-slate-400">{isLongPosition ? 'Target:' : 'Downside:'}</span>
+        <span class="{isLongPosition ? 'text-green-400' : 'text-amber-400'}">{targetPrice.toLocaleString('id-ID')}</span>
       </div>
     {/if}
     {#if cutLossPrice}
       <div class="flex items-center gap-2">
         <span class="w-3 h-0.5 bg-red-600"></span>
-        <span class="text-slate-400">Cut Loss:</span>
+        <span class="text-slate-400">{isLongPosition ? 'Cut Loss:' : 'Stop Loss:'}</span>
         <span class="text-red-400">{cutLossPrice.toLocaleString('id-ID')}</span>
       </div>
     {/if}
