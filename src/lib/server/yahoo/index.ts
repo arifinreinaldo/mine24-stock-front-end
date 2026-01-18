@@ -246,18 +246,19 @@ export async function searchStocks(query: string): Promise<{ symbol: string; nam
   }
 
   try {
-    const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=20&newsCount=0&enableFuzzyQuery=false&quotesQueryId=tss_match_phrase_query`;
+    // First, search with original query
+    let url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=20&newsCount=0&enableFuzzyQuery=false&quotesQueryId=tss_match_phrase_query`;
 
-    const response = await fetch(url, { headers });
+    let response = await fetch(url, { headers });
 
     if (!response.ok) {
       console.error(`Yahoo Finance search error: ${response.status}`);
       return [];
     }
 
-    const data: YahooSearchResponse = await response.json();
+    let data: YahooSearchResponse = await response.json();
 
-    const stocks = (data.quotes || [])
+    let stocks = (data.quotes || [])
       .filter((q) => {
         // Filter for Indonesian stocks (.JK)
         const symbol = q.symbol || '';
@@ -268,6 +269,28 @@ export async function searchStocks(query: string): Promise<{ symbol: string; nam
         name: q.shortname || q.longname || q.symbol || ''
       }))
       .slice(0, 10);
+
+    // If no Indonesian stocks found and query doesn't already have .JK, try with .JK suffix
+    if (stocks.length === 0 && !query.toUpperCase().endsWith('.JK')) {
+      const jkQuery = `${query}.JK`;
+      url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(jkQuery)}&quotesCount=20&newsCount=0&enableFuzzyQuery=false&quotesQueryId=tss_match_phrase_query`;
+      
+      response = await fetch(url, { headers });
+      
+      if (response.ok) {
+        data = await response.json();
+        stocks = (data.quotes || [])
+          .filter((q) => {
+            const symbol = q.symbol || '';
+            return symbol.endsWith('.JK');
+          })
+          .map((q) => ({
+            symbol: q.symbol || '',
+            name: q.shortname || q.longname || q.symbol || ''
+          }))
+          .slice(0, 10);
+      }
+    }
 
     setCache(cacheKey, stocks);
     return stocks;
