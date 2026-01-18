@@ -5,8 +5,10 @@ import type { WyckoffPhase } from '$lib/server/db/schema';
 
 export const load: PageServerLoad = async ({ cookies, platform }) => {
   const sessionId = cookies.get('session_id');
+  console.log('[page.server] sessionId from cookie:', sessionId);
 
   if (!sessionId) {
+    console.log('[page.server] No sessionId, returning empty stocks');
     return { stocks: [] };
   }
 
@@ -24,6 +26,8 @@ export const load: PageServerLoad = async ({ cookies, platform }) => {
       .innerJoin(tickers, eq(searchHistory.tickerId, tickers.id))
       .where(eq(searchHistory.sessionId, sessionId))
       .orderBy(desc(searchHistory.searchedAt));
+
+    console.log('[page.server] history count:', history.length);
 
     if (history.length === 0) {
       return { stocks: [] };
@@ -76,6 +80,8 @@ export const load: PageServerLoad = async ({ cookies, platform }) => {
 
       const analysis = analysisMap.get(h.tickerId);
       const prices = pricesMap.get(h.tickerId) || [];
+
+      console.log('[page.server] Processing:', h.symbol, 'analysis:', !!analysis, 'prices:', prices.length);
 
       if (!analysis || prices.length === 0) {
         return null;

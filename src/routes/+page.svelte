@@ -20,7 +20,8 @@
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ symbol, sessionId })
+        body: JSON.stringify({ symbol, sessionId }),
+        credentials: 'same-origin'
       });
 
       if (res.ok) {

@@ -20,13 +20,16 @@ export const POST: RequestHandler = async ({ request, cookies, platform }) => {
   if (!sessionId) {
     // Generate new session ID
     sessionId = `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 15)}`;
-    cookies.set('session_id', sessionId, {
-      path: '/',
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 365 // 1 year
-    });
   }
+
+  // Always sync cookie with the session ID being used
+  cookies.set('session_id', sessionId, {
+    path: '/',
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: true,
+    maxAge: 60 * 60 * 24 * 365 // 1 year
+  });
 
   const normalizedSymbol = normalizeSymbol(symbol);
 
@@ -61,6 +64,7 @@ export const POST: RequestHandler = async ({ request, cookies, platform }) => {
     }
 
     const tickerId = ticker[0].id;
+    console.log('[search] tickerId:', tickerId, 'sessionId:', sessionId);
 
     // Add to search history (upsert)
     await db
@@ -75,6 +79,7 @@ export const POST: RequestHandler = async ({ request, cookies, platform }) => {
           searchedAt: new Date()
         }
       });
+    console.log('[search] Search history saved');
 
     // Fetch historical data
     const daysNeeded = getHistoryDaysNeeded();
