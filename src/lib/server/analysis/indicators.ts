@@ -232,23 +232,22 @@ export function identifyTrend(
   ma50: number | null,
   ma200: number | null
 ): 'bullish' | 'bearish' | 'neutral' {
-  if (!ma20 || !ma50 || !ma200) {
+  if (!ma20 || !ma50) {
     return 'neutral';
   }
 
   const aboveMa20 = currentPrice > ma20;
   const aboveMa50 = currentPrice > ma50;
-  const aboveMa200 = currentPrice > ma200;
+  const aboveMa200 = ma200 ? currentPrice > ma200 : null;
   const ma20AboveMa50 = ma20 > ma50;
-  const ma50AboveMa200 = ma50 > ma200;
 
-  // Strong bullish: Price above all MAs, MAs in bullish order
-  if (aboveMa20 && aboveMa50 && aboveMa200 && ma20AboveMa50 && ma50AboveMa200) {
+  // Bullish: Price above MA20 and MA50, and MA20 > MA50
+  if (aboveMa20 && aboveMa50 && ma20AboveMa50) {
     return 'bullish';
   }
 
-  // Strong bearish: Price below all MAs, MAs in bearish order
-  if (!aboveMa20 && !aboveMa50 && !aboveMa200 && !ma20AboveMa50 && !ma50AboveMa200) {
+  // Bearish: Price below MA20 and MA50, and MA20 < MA50
+  if (!aboveMa20 && !aboveMa50 && !ma20AboveMa50) {
     return 'bearish';
   }
 

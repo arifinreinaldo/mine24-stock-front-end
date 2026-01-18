@@ -2,7 +2,6 @@ import type { HistoricalPrice } from '../yahoo';
 import type { WyckoffPhase, WyckoffSubPhase } from '../db/schema';
 import {
   calculateIndicators,
-  identifyTrend,
   analyzeVolume,
   type TechnicalIndicators
 } from './indicators';
@@ -179,14 +178,6 @@ export function detectWyckoffPhase(prices: HistoricalPrice[]): WyckoffResult {
   const indicators = calculateIndicators(sortedPrices);
   const { support, resistance } = findKeyLevels(sortedPrices);
 
-  // Analyze trend
-  const trend = identifyTrend(
-    currentPrice,
-    indicators.ma20,
-    indicators.ma50,
-    indicators.ma200
-  );
-
   // Analyze volume
   const volumePattern = analyzeVolume(sortedPrices);
 
@@ -196,10 +187,6 @@ export function detectWyckoffPhase(prices: HistoricalPrice[]): WyckoffResult {
   // Check for higher lows / lower highs
   const higherLows = hasHigherLows(sortedPrices);
   const lowerHighs = hasLowerHighs(sortedPrices);
-
-  // Price position relative to levels
-  const priceNearSupport = (currentPrice - support) / support < 0.05;
-  const priceNearResistance = (resistance - currentPrice) / currentPrice < 0.05;
 
   // RSI extremes
   const rsiOversold = (indicators.rsi14 || 50) < 30;
@@ -220,8 +207,161 @@ export function detectWyckoffPhase(prices: HistoricalPrice[]): WyckoffResult {
   let strength: number;
   let reasoning: string;
 
-  // Phase detection logic
-  if (isConsolidating && (priceNearSupport || rsiOversold || mfiOversold)) {
+  // Calculate price position relative to recent range
+  const recentPrices = sortedPrices.slice(-50);
+  const recentHigh = Math.max(...recentPrices.map(p => p.high));
+  const recentLow = Math.min(...recentPrices.map(p => p.low));
+  const priceRange = recentHigh - recentLow;
+  const pricePosition = priceRange > 0 ? (currentPrice - recentLow) / priceRange : 0.5;
+  
+  // Price in upper 30% of range
+  const priceInUpperRange = pricePosition > 0.7;
+  // Price in lower 30% of range
+  const priceInLowerRange = pricePosition < 0.3;
+
+  // Check for downtrend: lower lows and lower highs, or price below MAs
+  const isDowntrending = lowerHighs || 
+    (indicators.ma20 && indicators.ma50 && currentPrice < indicators.ma20 && currentPrice < indicators.ma50 && indicators.ma20 < indicators.ma50);
+  
+  // Check for uptrending
+  const isUptrending = higherLows ||
+    (indicators.ma20 && indicators.ma50 && currentPrice > indicators.ma20 && currentPrice > indicators.ma50 && indicators.ma20 > indicators.ma50);
+
+  // Calculate how far price has fallen from recent high (for markdown phase detection)
+  const dropFromHigh = recentHigh > 0 ? ((recentHigh - currentPrice) / recentHigh) * 100 : 0;
+  
+  // Calculate how far price has risen from recent low (for markup phase detection)
+  const riseFromLow = recentLow > 0 ? ((currentPrice - recentLow) / recentLow) * 100 : 0;
+
+  // Phase detection logic - reordered for better accuracy
+  if (isDowntrending && !isConsolidating) {
+    // MARKDOWN: Downtrend, price falling
+    phase = 'markdown';
+    strength = 0;
+    reasoning = 'Price in downtrend. ';
+
+    // Determine subphase based on how advanced the markdown is
+    if (dropFromHigh > 40 || (rsiOversold && priceInLowerRange)) {
+      // Phase E: Final capitulation, near bottom
+      subPhase = 'E';
+      strength += 35;
+      reasoning += `Price dropped ${dropFromHigh.toFixed(0)}% from recent high. Potential capitulation. `;
+    } else if (dropFromHigh > 25 || (indicators.ma20 && indicators.ma50 && indicators.ma20 < indicators.ma50 && lowerHighs)) {
+      // Phase D: Strong markdown, confirmed downtrend
+      subPhase = 'D';
+      strength += 30;
+      reasoning += 'Confirmed downtrend with MA20 below MA50. ';
+    } else if (indicators.ma20 && indicators.ma50 && indicators.ma20 < indicators.ma50) {
+      // Phase C: Markdown accelerating
+      subPhase = 'C';
+      strength += 25;
+      reasoning += 'MA20 crossed below MA50. ';
+    } else if (lowerHighs) {
+      // Phase B: Lower highs forming
+      subPhase = 'B';
+      strength += 20;
+      reasoning += 'Lower highs pattern forming. ';
+    } else {
+      // Phase A: Early markdown
+      subPhase = 'A';
+      strength += 15;
+      reasoning += 'Early markdown phase. ';
+    }
+
+    if (lowerHighs && subPhase !== 'B') {
+      strength += 15;
+      reasoning += 'Lower highs forming. ';
+    }
+    if (volumePattern === 'increasing') {
+      strength += 15;
+      reasoning += 'Volume increasing on down moves. ';
+    }
+    if (macdBearish) {
+      strength += 10;
+      reasoning += 'MACD bearish. ';
+    }
+    if (rsiOversold) {
+      strength += 5;
+      reasoning += 'RSI oversold. ';
+    }
+  } else if (isConsolidating && (priceInUpperRange || rsiOverbought || mfiOverbought || lowerHighs)) {
+    // DISTRIBUTION: Price at highs, consolidating, smart money selling
+    phase = 'distribution';
+    strength = 0;
+    reasoning = 'Price consolidating near highs. ';
+
+    // Determine subphase based on distribution progression
+    if (lowerHighs && macdBearish && indicators.ma20 && currentPrice < indicators.ma20) {
+      // Phase E: Last point of supply, about to break down
+      subPhase = 'E';
+      strength += 35;
+      reasoning += 'Last point of supply, breakdown imminent. ';
+    } else if (lowerHighs && macdBearish) {
+      // Phase D: Sign of weakness confirmed
+      subPhase = 'D';
+      strength += 30;
+      reasoning += 'Sign of weakness with bearish momentum. ';
+    } else if (lowerHighs) {
+      // Phase C: Sign of weakness
+      subPhase = 'C';
+      strength += 25;
+      reasoning += 'Lower highs forming - sign of weakness. ';
+    } else if (volumePattern === 'decreasing') {
+      // Phase B: Secondary test
+      subPhase = 'B';
+      strength += 20;
+      reasoning += 'Volume decreasing during consolidation. ';
+    } else {
+      // Phase A: Buying climax
+      subPhase = 'A';
+      strength += 10;
+      reasoning += 'Initial distribution phase. ';
+    }
+
+    if (rsiOverbought) {
+      strength += 15;
+      reasoning += 'RSI overbought. ';
+    }
+    if (mfiOverbought) {
+      strength += 15;
+      reasoning += 'MFI shows distribution. ';
+    }
+    if (macdBearish && subPhase !== 'D' && subPhase !== 'E') {
+      strength += 10;
+      reasoning += 'MACD turning bearish. ';
+    }
+  } else if (isUptrending && !isConsolidating) {
+    // MARKUP: Uptrend after accumulation
+    phase = 'markup';
+    strength = 0;
+    reasoning = 'Price in uptrend above moving averages. ';
+
+    if (indicators.ma20 && indicators.ma50 && indicators.ma20 > indicators.ma50) {
+      subPhase = 'D'; // Strong markup
+      strength += 25;
+      reasoning += 'MA20 above MA50. ';
+    } else {
+      subPhase = 'C'; // Early markup
+      strength += 15;
+    }
+
+    if (higherLows) {
+      strength += 20;
+      reasoning += 'Higher lows forming. ';
+    }
+    if (volumePattern === 'increasing') {
+      strength += 15;
+      reasoning += 'Volume increasing on up moves. ';
+    }
+    if (macdBullish) {
+      strength += 15;
+      reasoning += 'MACD bullish. ';
+    }
+    if (!rsiOverbought) {
+      strength += 10;
+      reasoning += 'RSI not yet overbought, room to run. ';
+    }
+  } else if (isConsolidating && (priceInLowerRange || rsiOversold || mfiOversold || higherLows)) {
     // ACCUMULATION: Price at lows, consolidating, smart money buying
     phase = 'accumulation';
     strength = 0;
@@ -253,98 +393,34 @@ export function detectWyckoffPhase(prices: HistoricalPrice[]): WyckoffResult {
       strength += 10;
       reasoning += 'MACD turning bullish. ';
     }
-  } else if (trend === 'bullish' && !isConsolidating) {
-    // MARKUP: Uptrend after accumulation
-    phase = 'markup';
-    strength = 0;
-    reasoning = 'Price in uptrend above moving averages. ';
-
-    if (indicators.ma20 && indicators.ma50 && indicators.ma20 > indicators.ma50) {
-      subPhase = 'D'; // Strong markup
-      strength += 25;
-      reasoning += 'MA20 above MA50. ';
-    } else {
-      subPhase = 'C'; // Early markup
-      strength += 15;
-    }
-
-    if (volumePattern === 'increasing') {
-      strength += 20;
-      reasoning += 'Volume increasing on up moves. ';
-    }
-    if (macdBullish) {
-      strength += 15;
-      reasoning += 'MACD bullish. ';
-    }
-    if (!rsiOverbought) {
-      strength += 10;
-      reasoning += 'RSI not yet overbought, room to run. ';
-    }
-  } else if (isConsolidating && (priceNearResistance || rsiOverbought || mfiOverbought)) {
-    // DISTRIBUTION: Price at highs, consolidating, smart money selling
-    phase = 'distribution';
-    strength = 0;
-    reasoning = 'Price consolidating near resistance levels. ';
-
-    if (lowerHighs) {
-      subPhase = 'C'; // Sign of weakness
-      strength += 30;
-      reasoning += 'Lower highs forming. ';
-    } else if (volumePattern === 'decreasing') {
-      subPhase = 'B'; // Secondary test
-      strength += 20;
-      reasoning += 'Volume decreasing during consolidation. ';
-    } else {
-      subPhase = 'A'; // Buying climax
-      strength += 10;
-      reasoning += 'Initial distribution phase. ';
-    }
-
-    if (rsiOverbought) {
-      strength += 15;
-      reasoning += 'RSI overbought. ';
-    }
-    if (mfiOverbought) {
-      strength += 15;
-      reasoning += 'MFI shows distribution. ';
-    }
-    if (macdBearish) {
-      strength += 10;
-      reasoning += 'MACD turning bearish. ';
-    }
-  } else if (trend === 'bearish' && !isConsolidating) {
-    // MARKDOWN: Downtrend after distribution
-    phase = 'markdown';
-    strength = 0;
-    reasoning = 'Price in downtrend below moving averages. ';
-
-    if (indicators.ma20 && indicators.ma50 && indicators.ma20 < indicators.ma50) {
-      subPhase = 'D'; // Strong markdown
-      strength += 25;
-      reasoning += 'MA20 below MA50. ';
-    } else {
-      subPhase = 'C'; // Early markdown
-      strength += 15;
-    }
-
-    if (volumePattern === 'increasing') {
-      strength += 20;
-      reasoning += 'Volume increasing on down moves. ';
-    }
-    if (macdBearish) {
-      strength += 15;
-      reasoning += 'MACD bearish. ';
-    }
-    if (!rsiOversold) {
-      strength += 10;
-      reasoning += 'RSI not yet oversold, more downside possible. ';
-    }
   } else {
-    // Default to accumulation if unclear
-    phase = 'accumulation';
-    subPhase = 'A';
-    strength = 25;
-    reasoning = 'Market in transition, monitoring for clearer signals. ';
+    // Determine phase based on price position and indicators when unclear
+    if (priceInLowerRange || rsiOversold) {
+      phase = 'accumulation';
+      subPhase = 'A';
+      strength = 20;
+      reasoning = 'Price near lows, potential accumulation. ';
+    } else if (priceInUpperRange || rsiOverbought) {
+      phase = 'distribution';
+      subPhase = 'A';
+      strength = 20;
+      reasoning = 'Price near highs, potential distribution. ';
+    } else if (macdBearish && indicators.ma20 && currentPrice < indicators.ma20) {
+      phase = 'markdown';
+      subPhase = 'C';
+      strength = 20;
+      reasoning = 'Bearish momentum, potential markdown. ';
+    } else if (macdBullish && indicators.ma20 && currentPrice > indicators.ma20) {
+      phase = 'markup';
+      subPhase = 'C';
+      strength = 20;
+      reasoning = 'Bullish momentum, potential markup. ';
+    } else {
+      phase = 'accumulation';
+      subPhase = 'A';
+      strength = 15;
+      reasoning = 'Market in transition, monitoring for clearer signals. ';
+    }
   }
 
   // Cap strength at 100
