@@ -29,7 +29,7 @@ export const load: PageServerLoad = async ({ cookies, platform }) => {
       return { stocks: [] };
     }
 
-    const tickerIds = history.map(h => h.tickerId).filter((id): id is number => id !== null);
+    const tickerIds = history.map(h => h.tickerId).filter((id): id is string => id !== null);
 
     if (tickerIds.length === 0) {
       return { stocks: [] };
@@ -53,15 +53,16 @@ export const load: PageServerLoad = async ({ cookies, platform }) => {
     ]);
 
     // Group by tickerId
-    const analysisMap = new Map<number, typeof allAnalyses[0]>();
+    const analysisMap = new Map<string, typeof allAnalyses[0]>();
     for (const a of allAnalyses) {
-      if (!analysisMap.has(a.tickerId)) {
+      if (a.tickerId && !analysisMap.has(a.tickerId)) {
         analysisMap.set(a.tickerId, a);
       }
     }
 
-    const pricesMap = new Map<number, typeof allPrices>();
+    const pricesMap = new Map<string, typeof allPrices>();
     for (const p of allPrices) {
+      if (!p.tickerId) continue;
       const existing = pricesMap.get(p.tickerId) || [];
       if (existing.length < 2) {
         existing.push(p);
