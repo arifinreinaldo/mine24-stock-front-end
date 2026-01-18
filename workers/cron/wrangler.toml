@@ -3,9 +3,11 @@ main = "index.ts"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Run daily at 16:00 UTC (23:00 WIB - after Jakarta market close)
+# Run every hour during Indonesian market hours (WIB = UTC+7)
+# 08:00-18:00 WIB = 01:00-11:00 UTC
+# Monday-Friday only (1-5)
 [triggers]
-crons = ["0 16 * * 1-5"]
+crons = ["0 1-11 * * 1-5"]
 
 # Secrets should be set via `wrangler secret put`:
 # cd workers/cron && wrangler secret put DATABASE_URL
