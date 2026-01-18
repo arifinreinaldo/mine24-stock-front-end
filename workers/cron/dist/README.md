@@ -1,0 +1,1 @@
+This folder contains the built output assets for the worker "mine24-stock-cron" generated at 2026-01-18T11:14:36.323Z.
