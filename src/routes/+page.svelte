@@ -4,12 +4,49 @@
   import type { PageData } from './$types';
   import { invalidateAll } from '$app/navigation';
   import { sessionStore } from '$lib/stores/session';
+  import { onMount } from 'svelte';
+  import type { StockData } from '$lib/components/WyckoffDashboard.svelte';
 
   export let data: PageData;
 
   let isSearching = false;
   let isRefreshing = false;
   let isClearing = false;
+  let isLoadingHistory = true;
+  let stocks: StockData[] = data.stocks;
+  let initialLoadDone = false;
+
+  // Load history on mount if server didn't return data (cookie not synced yet)
+  onMount(async () => {
+    if (data.stocks.length === 0) {
+      const sessionId = sessionStore.get();
+      if (sessionId) {
+        try {
+          const res = await fetch('/api/stocks/history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId }),
+            credentials: 'same-origin'
+          });
+          if (res.ok) {
+            const result = await res.json();
+            if (result.stocks && result.stocks.length > 0) {
+              stocks = result.stocks;
+            }
+          }
+        } catch (e) {
+          console.error('Failed to load history:', e);
+        }
+      }
+    }
+    isLoadingHistory = false;
+    initialLoadDone = true;
+  });
+
+  // Only sync with server data after initial load is done (for invalidateAll updates)
+  $: if (initialLoadDone && data.stocks) {
+    stocks = data.stocks;
+  }
 
   async function handleSearch(event: CustomEvent<{ symbol: string }>) {
     const { symbol } = event.detail;
@@ -43,7 +80,7 @@
   }
 
   async function handleRefresh() {
-    if (isRefreshing || data.stocks.length === 0) return;
+    if (isRefreshing || stocks.length === 0) return;
     isRefreshing = true;
 
     try {
@@ -70,7 +107,7 @@
   }
 
   async function handleClear(clearAll: boolean = false) {
-    if (isClearing || data.stocks.length === 0) return;
+    if (isClearing || stocks.length === 0) return;
 
     const confirmMsg = clearAll
       ? 'This will remove all stocks from your watchlist and delete all their data. Continue?'
@@ -114,7 +151,7 @@
     <SearchBar on:search={handleSearch} isLoading={isSearching} />
   </section>
 
-  {#if data.stocks.length > 0}
+  {#if stocks.length > 0}
     <section class="flex flex-wrap items-center justify-center gap-3">
       <button
         on:click={handleRefresh}
@@ -167,5 +204,12 @@
     </section>
   {/if}
 
-  <WyckoffDashboard stocks={data.stocks} />
+  {#if isLoadingHistory}
+    <div class="text-center py-16">
+      <div class="text-6xl mb-4 animate-pulse">📊</div>
+      <h2 class="text-xl font-semibold text-slate-300 mb-2">Loading your watchlist...</h2>
+    </div>
+  {:else}
+    <WyckoffDashboard {stocks} />
+  {/if}
 </div>
