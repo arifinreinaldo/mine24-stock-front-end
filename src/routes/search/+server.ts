@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb, tickers, searchHistory, pricesDaily, wyckoffAnalysis, metricsDaily } from '$lib/server/db';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { fetchLatestQuote, fetchHistoricalDaily, normalizeSymbol, getHistoryDaysNeeded } from '$lib/server/yahoo';
 import { detectWyckoffPhase } from '$lib/server/analysis/wyckoff';
 import { calculateTargetAndCutLoss } from '$lib/server/analysis/targets';
@@ -106,19 +106,19 @@ export const POST: RequestHandler = async ({ request, cookies, platform }) => {
       volume: price.volume
     }));
 
-    // Use onConflictDoUpdate to ensure prices are always fresh
-    for (const priceValue of priceValues) {
+    // Batch upsert all prices in a single query to avoid subrequest limit
+    if (priceValues.length > 0) {
       await db
         .insert(pricesDaily)
-        .values(priceValue)
+        .values(priceValues)
         .onConflictDoUpdate({
           target: [pricesDaily.tickerId, pricesDaily.date],
           set: {
-            open: priceValue.open,
-            high: priceValue.high,
-            low: priceValue.low,
-            close: priceValue.close,
-            volume: priceValue.volume
+            open: sql`excluded.open`,
+            high: sql`excluded.high`,
+            low: sql`excluded.low`,
+            close: sql`excluded.close`,
+            volume: sql`excluded.volume`
           }
         });
     }
