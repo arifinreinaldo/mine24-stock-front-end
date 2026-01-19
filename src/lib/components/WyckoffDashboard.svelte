@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
   import type { WyckoffPhase } from '$lib/server/db/schema';
   import StockCard from './StockCard.svelte';
 
@@ -16,6 +17,12 @@
   }
 
   export let stocks: StockData[] = [];
+
+  const dispatch = createEventDispatcher<{ delete: { symbol: string } }>();
+
+  function handleDelete(event: CustomEvent<{ symbol: string }>) {
+    dispatch('delete', event.detail);
+  }
 
   // Group stocks by phase
   $: stocksByPhase = {
@@ -113,6 +120,7 @@
                 strength={stock.strength}
                 targetPrice={stock.targetPrice}
                 cutLossPrice={stock.cutLossPrice}
+                on:delete={handleDelete}
               />
             {/each}
           </div>

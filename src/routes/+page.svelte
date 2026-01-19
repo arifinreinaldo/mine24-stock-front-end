@@ -9,8 +9,36 @@
   let isSearching = false;
   let isRefreshing = false;
   let isClearing = false;
+  let deletingSymbol: string | null = null;
 
   $: stocks = data.stocks;
+
+  async function handleDelete(event: CustomEvent<{ symbol: string }>) {
+    const { symbol } = event.detail;
+    if (deletingSymbol) return;
+
+    deletingSymbol = symbol;
+
+    try {
+      const res = await fetch(`/api/stocks/${encodeURIComponent(symbol)}`, {
+        method: 'DELETE',
+        credentials: 'same-origin'
+      });
+
+      if (res.ok) {
+        await invalidateAll();
+      } else {
+        const error = await res.json();
+        console.error('Delete error:', error);
+        alert(error.message || 'Failed to delete stock');
+      }
+    } catch (e) {
+      console.error('Delete error:', e);
+      alert('Failed to delete stock');
+    } finally {
+      deletingSymbol = null;
+    }
+  }
 
   async function handleSearch(event: CustomEvent<{ symbol: string }>) {
     const { symbol } = event.detail;
@@ -167,5 +195,5 @@
     </section>
   {/if}
 
-  <WyckoffDashboard {stocks} />
+  <WyckoffDashboard {stocks} on:delete={handleDelete} />
 </div>

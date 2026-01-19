@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
   import type { WyckoffPhase } from '$lib/server/db/schema';
   import WyckoffBadge from './WyckoffBadge.svelte';
 
@@ -12,6 +13,17 @@
   export let strength: number;
   export let targetPrice: number;
   export let cutLossPrice: number;
+
+  const dispatch = createEventDispatcher<{ delete: { symbol: string } }>();
+
+  let isDeleting = false;
+
+  function handleDelete(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isDeleting) return;
+    dispatch('delete', { symbol });
+  }
 
   $: isPositive = change >= 0;
   $: changeClass = isPositive ? 'price-up' : 'price-down';
@@ -42,8 +54,19 @@
 
 <a
   href="/stock/{symbol}"
-  class="card-hover block group"
+  class="card-hover block group relative"
 >
+  <!-- Delete button -->
+  <button
+    on:click={handleDelete}
+    class="absolute top-2 right-2 p-1 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all z-10"
+    title="Remove from watchlist"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  </button>
+
   <div class="flex items-start justify-between mb-3">
     <div>
       <h3 class="font-semibold text-lg text-slate-100 group-hover:text-blue-400 transition-colors">
