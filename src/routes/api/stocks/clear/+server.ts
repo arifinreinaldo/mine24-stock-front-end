@@ -2,27 +2,24 @@ import { json, error, type RequestEvent } from '@sveltejs/kit';
 import { getDb, searchHistory, pricesDaily, wyckoffAnalysis, metricsDaily, foreignFlow } from '$lib/server/db';
 import { eq, inArray } from 'drizzle-orm';
 
-// DELETE - Clear all historical data for user's stocks
-export const DELETE = async ({ cookies, platform, url }: RequestEvent) => {
-  const sessionId = cookies.get('session_id');
+// Global session ID - all users share the same search history
+const GLOBAL_SESSION_ID = 'global';
 
-  if (!sessionId) {
-    throw error(401, 'No session found');
-  }
-
+// DELETE - Clear all historical data for stocks
+export const DELETE = async ({ platform, url }: RequestEvent) => {
   // Check if we should clear only watchlist or all data
   const clearAll = url.searchParams.get('all') === 'true';
 
   try {
     const db = getDb(platform);
 
-    // Get all stocks from user's search history
+    // Get all stocks from global search history
     const history = await db
       .select({
         tickerId: searchHistory.tickerId
       })
       .from(searchHistory)
-      .where(eq(searchHistory.sessionId, sessionId));
+      .where(eq(searchHistory.sessionId, GLOBAL_SESSION_ID));
 
     if (history.length === 0) {
       return json({ success: true, message: 'No stocks to clear', cleared: 0 });
@@ -73,7 +70,7 @@ export const DELETE = async ({ cookies, platform, url }: RequestEvent) => {
     if (clearAll) {
       await db
         .delete(searchHistory)
-        .where(eq(searchHistory.sessionId, sessionId));
+        .where(eq(searchHistory.sessionId, GLOBAL_SESSION_ID));
       deletedWatchlist = tickerIds.length;
     }
 

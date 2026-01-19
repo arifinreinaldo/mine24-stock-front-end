@@ -1,21 +1,18 @@
 import { json, error, type RequestEvent } from '@sveltejs/kit';
 import { getDb, tickers, searchHistory, pricesDaily, wyckoffAnalysis, metricsDaily } from '$lib/server/db';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { fetchHistoricalDaily, normalizeSymbol, getHistoryDaysNeeded, clearCache } from '$lib/server/yahoo';
 import { detectWyckoffPhase } from '$lib/server/analysis/wyckoff';
 import { calculateTargetAndCutLoss } from '$lib/server/analysis/targets';
 
-export const POST = async ({ cookies, platform }: RequestEvent) => {
-  const sessionId = cookies.get('session_id');
+// Global session ID - all users share the same search history
+const GLOBAL_SESSION_ID = 'global';
 
-  if (!sessionId) {
-    throw error(401, 'No session found');
-  }
-
+export const POST = async ({ platform }: RequestEvent) => {
   try {
     const db = getDb(platform);
 
-    // Get all stocks from user's search history
+    // Get all stocks from global search history
     const history = await db
       .select({
         tickerId: searchHistory.tickerId,
@@ -23,7 +20,7 @@ export const POST = async ({ cookies, platform }: RequestEvent) => {
       })
       .from(searchHistory)
       .innerJoin(tickers, eq(searchHistory.tickerId, tickers.id))
-      .where(eq(searchHistory.sessionId, sessionId));
+      .where(eq(searchHistory.sessionId, GLOBAL_SESSION_ID));
 
     if (history.length === 0) {
       return json({ success: true, message: 'No stocks to refresh', refreshed: 0 });
@@ -67,19 +64,19 @@ export const POST = async ({ cookies, platform }: RequestEvent) => {
           volume: price.volume
         }));
 
-        // Insert or update prices
-        for (const priceValue of priceValues) {
+        // Batch upsert all prices in a single query to avoid subrequest limit
+        if (priceValues.length > 0) {
           await db
             .insert(pricesDaily)
-            .values(priceValue)
+            .values(priceValues)
             .onConflictDoUpdate({
               target: [pricesDaily.tickerId, pricesDaily.date],
               set: {
-                open: priceValue.open,
-                high: priceValue.high,
-                low: priceValue.low,
-                close: priceValue.close,
-                volume: priceValue.volume
+                open: sql`excluded.open`,
+                high: sql`excluded.high`,
+                low: sql`excluded.low`,
+                close: sql`excluded.close`,
+                volume: sql`excluded.volume`
               }
             });
         }

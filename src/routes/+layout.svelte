@@ -1,11 +1,5 @@
 <script lang="ts">
   import '../app.css';
-  import { onMount } from 'svelte';
-  import { sessionStore } from '$lib/stores/session';
-
-  onMount(() => {
-    sessionStore.init();
-  });
 </script>
 
 <div class="min-h-screen bg-slate-900">

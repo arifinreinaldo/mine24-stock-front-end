@@ -6,30 +6,16 @@ import { fetchLatestQuote, fetchHistoricalDaily, normalizeSymbol, getHistoryDays
 import { detectWyckoffPhase } from '$lib/server/analysis/wyckoff';
 import { calculateTargetAndCutLoss } from '$lib/server/analysis/targets';
 
-export const POST: RequestHandler = async ({ request, cookies, platform }) => {
-  const body = await request.json() as { symbol?: string; sessionId?: string };
-  const { symbol, sessionId: clientSessionId } = body;
+// Global session ID - all users share the same search history
+const GLOBAL_SESSION_ID = 'global';
+
+export const POST: RequestHandler = async ({ request, platform }) => {
+  const body = await request.json() as { symbol?: string };
+  const { symbol } = body;
 
   if (!symbol || typeof symbol !== 'string') {
     throw error(400, 'Symbol is required');
   }
-
-  // Use client session ID or cookie session ID
-  let sessionId = clientSessionId || cookies.get('session_id');
-
-  if (!sessionId) {
-    // Generate new session ID
-    sessionId = `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 15)}`;
-  }
-
-  // Always sync cookie with the session ID being used
-  cookies.set('session_id', sessionId, {
-    path: '/',
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: true,
-    maxAge: 60 * 60 * 24 * 365 // 1 year
-  });
 
   const normalizedSymbol = normalizeSymbol(symbol);
   console.log('[search] Input symbol:', symbol, '-> Normalized:', normalizedSymbol);
@@ -67,14 +53,14 @@ export const POST: RequestHandler = async ({ request, cookies, platform }) => {
     }
 
     const tickerId = ticker[0].id;
-    console.log('[search] tickerId:', tickerId, 'sessionId:', sessionId);
+    console.log('[search] tickerId:', tickerId);
 
-    // Add to search history (upsert)
+    // Add to search history (upsert) - using global session for shared history
     await db
       .insert(searchHistory)
       .values({
         tickerId,
-        sessionId
+        sessionId: GLOBAL_SESSION_ID
       })
       .onConflictDoUpdate({
         target: [searchHistory.tickerId, searchHistory.sessionId],

@@ -3,63 +3,26 @@
   import WyckoffDashboard from '$lib/components/WyckoffDashboard.svelte';
   import type { PageData } from './$types';
   import { invalidateAll } from '$app/navigation';
-  import { sessionStore } from '$lib/stores/session';
-  import { onMount } from 'svelte';
-  import type { StockData } from '$lib/components/WyckoffDashboard.svelte';
 
   export let data: PageData;
 
   let isSearching = false;
   let isRefreshing = false;
   let isClearing = false;
-  let isLoadingHistory = true;
-  let stocks: StockData[] = data.stocks;
-  let initialLoadDone = false;
 
-  // Load history on mount if server didn't return data (cookie not synced yet)
-  onMount(async () => {
-    if (data.stocks.length === 0) {
-      const sessionId = sessionStore.get();
-      if (sessionId) {
-        try {
-          const res = await fetch('/api/stocks/history', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionId }),
-            credentials: 'same-origin'
-          });
-          if (res.ok) {
-            const result = await res.json();
-            if (result.stocks && result.stocks.length > 0) {
-              stocks = result.stocks;
-            }
-          }
-        } catch (e) {
-          console.error('Failed to load history:', e);
-        }
-      }
-    }
-    isLoadingHistory = false;
-    initialLoadDone = true;
-  });
-
-  // Only sync with server data after initial load is done (for invalidateAll updates)
-  $: if (initialLoadDone && data.stocks) {
-    stocks = data.stocks;
-  }
+  $: stocks = data.stocks;
 
   async function handleSearch(event: CustomEvent<{ symbol: string }>) {
     const { symbol } = event.detail;
     isSearching = true;
 
     try {
-      const sessionId = sessionStore.get();
       const res = await fetch('/search', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ symbol, sessionId }),
+        body: JSON.stringify({ symbol }),
         credentials: 'same-origin'
       });
 
@@ -204,12 +167,5 @@
     </section>
   {/if}
 
-  {#if isLoadingHistory}
-    <div class="text-center py-16">
-      <div class="text-6xl mb-4 animate-pulse">📊</div>
-      <h2 class="text-xl font-semibold text-slate-300 mb-2">Loading your watchlist...</h2>
-    </div>
-  {:else}
-    <WyckoffDashboard {stocks} />
-  {/if}
+  <WyckoffDashboard {stocks} />
 </div>

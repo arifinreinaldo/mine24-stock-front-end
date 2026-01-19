@@ -1,21 +1,16 @@
 import type { PageServerLoad } from './$types';
 import { getDb, searchHistory, wyckoffAnalysis, tickers, pricesDaily } from '$lib/server/db';
-import { eq, desc, inArray, sql } from 'drizzle-orm';
+import { eq, desc, inArray } from 'drizzle-orm';
 import type { WyckoffPhase } from '$lib/server/db/schema';
 
-export const load: PageServerLoad = async ({ cookies, platform }) => {
-  const sessionId = cookies.get('session_id');
-  console.log('[page.server] sessionId from cookie:', sessionId);
+// Global session ID - all users share the same search history
+const GLOBAL_SESSION_ID = 'global';
 
-  if (!sessionId) {
-    console.log('[page.server] No sessionId, returning empty stocks');
-    return { stocks: [] };
-  }
-
+export const load: PageServerLoad = async ({ platform }) => {
   try {
     const db = getDb(platform);
 
-    // Get all stocks from user's search history with their Wyckoff analysis
+    // Get all stocks from global search history with their Wyckoff analysis
     const history = await db
       .select({
         tickerId: searchHistory.tickerId,
@@ -24,7 +19,7 @@ export const load: PageServerLoad = async ({ cookies, platform }) => {
       })
       .from(searchHistory)
       .innerJoin(tickers, eq(searchHistory.tickerId, tickers.id))
-      .where(eq(searchHistory.sessionId, sessionId))
+      .where(eq(searchHistory.sessionId, GLOBAL_SESSION_ID))
       .orderBy(desc(searchHistory.searchedAt));
 
     console.log('[page.server] history count:', history.length);
