@@ -7,7 +7,7 @@ import { detectWyckoffPhase } from '$lib/server/analysis/wyckoff';
 import { calculateTargetAndCutLoss } from '$lib/server/analysis/targets';
 
 export const POST: RequestHandler = async ({ request, cookies, platform }) => {
-  const body = await request.json();
+  const body = await request.json() as { symbol?: string; sessionId?: string };
   const { symbol, sessionId: clientSessionId } = body;
 
   if (!symbol || typeof symbol !== 'string') {
@@ -106,10 +106,22 @@ export const POST: RequestHandler = async ({ request, cookies, platform }) => {
       volume: price.volume
     }));
 
-    await db
-      .insert(pricesDaily)
-      .values(priceValues)
-      .onConflictDoNothing();
+    // Use onConflictDoUpdate to ensure prices are always fresh
+    for (const priceValue of priceValues) {
+      await db
+        .insert(pricesDaily)
+        .values(priceValue)
+        .onConflictDoUpdate({
+          target: [pricesDaily.tickerId, pricesDaily.date],
+          set: {
+            open: priceValue.open,
+            high: priceValue.high,
+            low: priceValue.low,
+            close: priceValue.close,
+            volume: priceValue.volume
+          }
+        });
+    }
 
     // Run Wyckoff analysis
     const wyckoffResult = detectWyckoffPhase(historicalPrices);

@@ -42,6 +42,22 @@ function setCache(key: string, data: unknown, ttl: number = CACHE_TTL): void {
   cache.set(key, { data, expiry: Date.now() + ttl });
 }
 
+// Clear cache for a specific symbol or all cache
+export function clearCache(symbol?: string): void {
+  if (symbol) {
+    const normalizedSymbol = normalizeSymbol(symbol);
+    // Clear all cache entries related to this symbol
+    for (const key of cache.keys()) {
+      if (key.includes(normalizedSymbol)) {
+        cache.delete(key);
+      }
+    }
+  } else {
+    // Clear all cache
+    cache.clear();
+  }
+}
+
 // Normalize Indonesian ticker symbol
 export function normalizeSymbol(symbol: string): string {
   const cleaned = symbol.toUpperCase().trim();
