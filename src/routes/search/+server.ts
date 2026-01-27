@@ -1,10 +1,11 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getDb, tickers, searchHistory, pricesDaily, wyckoffAnalysis, metricsDaily } from '$lib/server/db';
+import { getDb, tickers, searchHistory, pricesDaily, wyckoffAnalysis, metricsDaily, foreignFlow } from '$lib/server/db';
 import { eq, sql } from 'drizzle-orm';
-import { fetchLatestQuote, fetchHistoricalDaily, normalizeSymbol, getHistoryDaysNeeded } from '$lib/server/yahoo';
+import { fetchLatestQuote, fetchHistoricalDaily, normalizeSymbol, getHistoryDaysNeeded, isIndexSymbol } from '$lib/server/yahoo';
 import { detectWyckoffPhase } from '$lib/server/analysis/wyckoff';
 import { calculateTargetAndCutLoss } from '$lib/server/analysis/targets';
+import { generateSimulatedForeignFlow } from '$lib/server/analysis/foreignFlow';
 
 // Global session ID - all users share the same search history
 const GLOBAL_SESSION_ID = 'global';
@@ -189,6 +190,40 @@ export const POST: RequestHandler = async ({ request, platform }) => {
           volumeRatio: indicators.volumeRatio?.toString() || null
         }
       });
+
+    // Generate and save simulated foreign flow (skip for index symbols)
+    if (!isIndexSymbol(normalizedSymbol)) {
+      const simulatedFlows = generateSimulatedForeignFlow(historicalPrices);
+      const recentFlows = simulatedFlows.slice(-60);
+
+      if (recentFlows.length > 0) {
+        const flowValues = recentFlows.map(flow => ({
+          tickerId,
+          date: flow.date.toISOString().split('T')[0],
+          foreignBuy: flow.foreignBuy,
+          foreignSell: flow.foreignSell,
+          foreignNet: flow.foreignNet,
+          foreignBuyValue: flow.foreignBuyValue.toString(),
+          foreignSellValue: flow.foreignSellValue.toString(),
+          foreignNetValue: flow.foreignNetValue.toString()
+        }));
+
+        await db
+          .insert(foreignFlow)
+          .values(flowValues)
+          .onConflictDoUpdate({
+            target: [foreignFlow.tickerId, foreignFlow.date],
+            set: {
+              foreignBuy: sql`excluded.foreign_buy`,
+              foreignSell: sql`excluded.foreign_sell`,
+              foreignNet: sql`excluded.foreign_net`,
+              foreignBuyValue: sql`excluded.foreign_buy_value`,
+              foreignSellValue: sql`excluded.foreign_sell_value`,
+              foreignNetValue: sql`excluded.foreign_net_value`
+            }
+          });
+      }
+    }
 
     return json({
       success: true,

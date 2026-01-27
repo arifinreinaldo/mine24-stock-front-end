@@ -12,6 +12,27 @@
   let deletingSymbol: string | null = null;
 
   $: stocks = data.stocks;
+  $: jci = data.jci;
+  $: marketBreadth = data.marketBreadth;
+
+  function getPhaseColor(phase: string): string {
+    switch (phase) {
+      case 'accumulation':
+        return 'bg-green-500';
+      case 'markup':
+        return 'bg-blue-500';
+      case 'distribution':
+        return 'bg-yellow-500';
+      case 'markdown':
+        return 'bg-red-500';
+      default:
+        return 'bg-gray-500';
+    }
+  }
+
+  function getPhaseLabel(phase: string): string {
+    return phase.charAt(0).toUpperCase() + phase.slice(1);
+  }
 
   async function handleDelete(event: CustomEvent<{ symbol: string }>) {
     const { symbol } = event.detail;
@@ -141,6 +162,88 @@
   <section class="max-w-2xl mx-auto">
     <SearchBar on:search={handleSearch} isLoading={isSearching} />
   </section>
+
+  <!-- JCI Index Card -->
+  {#if jci}
+    <section class="max-w-2xl mx-auto">
+      <a
+        href="/stock/{encodeURIComponent(jci.symbol)}"
+        class="block bg-gradient-to-r from-blue-900 to-blue-700 rounded-xl p-6 shadow-lg hover:shadow-xl transition-all hover:scale-[1.01]"
+      >
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="flex items-center gap-3 mb-2">
+              <h2 class="text-2xl font-bold text-white">JCI Index</h2>
+              <span class="px-2 py-1 text-xs font-medium rounded-full {getPhaseColor(jci.phase)} text-white">
+                {getPhaseLabel(jci.phase)}
+              </span>
+            </div>
+            <p class="text-blue-200 text-sm">{jci.symbol} - {jci.name}</p>
+          </div>
+          <div class="text-right">
+            <p class="text-3xl font-bold text-white">
+              {jci.price.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+            <p class="text-lg font-medium {jci.changePercent >= 0 ? 'text-green-300' : 'text-red-300'}">
+              {jci.changePercent >= 0 ? '+' : ''}{jci.changePercent.toFixed(2)}%
+              <span class="text-sm">
+                ({jci.change >= 0 ? '+' : ''}{jci.change.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+              </span>
+            </p>
+          </div>
+        </div>
+      </a>
+    </section>
+  {/if}
+
+  <!-- Market Breadth Widget -->
+  {#if marketBreadth && marketBreadth.total > 0}
+    <section class="max-w-2xl mx-auto">
+      <div class="bg-gray-800 rounded-xl p-5 shadow-lg">
+        <h3 class="text-lg font-semibold text-white mb-4">Market Breadth (MA200)</h3>
+        <div class="space-y-3">
+          <!-- Progress Bar -->
+          <div class="relative h-6 bg-gray-700 rounded-full overflow-hidden">
+            <div
+              class="absolute left-0 top-0 h-full bg-green-500 transition-all"
+              style="width: {marketBreadth.percentAbove}%"
+            />
+            <div
+              class="absolute right-0 top-0 h-full bg-red-500 transition-all"
+              style="width: {100 - marketBreadth.percentAbove}%"
+            />
+            <div class="absolute inset-0 flex items-center justify-center">
+              <span class="text-sm font-bold text-white drop-shadow-md">
+                {marketBreadth.percentAbove}% Bullish
+              </span>
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div class="flex justify-between text-sm">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 bg-green-500 rounded-full"></span>
+              <span class="text-gray-300">
+                Above MA200: <span class="font-semibold text-green-400">{marketBreadth.aboveMA200}</span>
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-gray-300">
+                Below MA200: <span class="font-semibold text-red-400">{marketBreadth.belowMA200}</span>
+              </span>
+              <span class="w-3 h-3 bg-red-500 rounded-full"></span>
+            </div>
+          </div>
+
+          {#if marketBreadth.noData > 0}
+            <p class="text-xs text-gray-500 text-center">
+              {marketBreadth.noData} stock{marketBreadth.noData > 1 ? 's' : ''} with insufficient data
+            </p>
+          {/if}
+        </div>
+      </div>
+    </section>
+  {/if}
 
   {#if stocks.length > 0}
     <section class="flex flex-wrap items-center justify-center gap-3">

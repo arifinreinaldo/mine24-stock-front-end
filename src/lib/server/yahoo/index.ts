@@ -58,9 +58,18 @@ export function clearCache(symbol?: string): void {
   }
 }
 
+// Check if symbol is an index (starts with ^)
+export function isIndexSymbol(symbol: string): boolean {
+  return symbol.trim().startsWith('^');
+}
+
 // Normalize Indonesian ticker symbol
 export function normalizeSymbol(symbol: string): string {
   const cleaned = symbol.toUpperCase().trim();
+  // Index symbols (like ^JKSE) don't get .JK suffix
+  if (isIndexSymbol(cleaned)) {
+    return cleaned;
+  }
   // If already has .JK suffix, return as is
   if (cleaned.endsWith('.JK')) {
     return cleaned;
