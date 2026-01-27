@@ -4,6 +4,7 @@ import { getDb, tickers, pricesDaily, wyckoffAnalysis, metricsDaily, foreignFlow
 import { eq, desc } from 'drizzle-orm';
 import { normalizeSymbol } from '$lib/server/yahoo';
 import type { WyckoffPhase } from '$lib/server/db/schema';
+import { generateRecommendation, type StockRecommendation } from '$lib/server/analysis/recommendation';
 
 export const load: PageServerLoad = async ({ params, platform }) => {
   const symbol = normalizeSymbol(params.symbol);
@@ -77,6 +78,31 @@ export const load: PageServerLoad = async ({ params, platform }) => {
 
     const metrics = metricsResult[0] || {};
 
+    // Calculate net foreign flow (sum of last 5 days)
+    const recentFlow = foreignFlowResult.slice(0, 5);
+    const foreignNetFlow = recentFlow.reduce((sum, f) => sum + (f.foreignNet || 0), 0);
+
+    // Generate recommendation
+    let recommendation: StockRecommendation | null = null;
+    try {
+      recommendation = generateRecommendation({
+        currentPrice: price,
+        phase: analysis.phase as WyckoffPhase,
+        subPhase: analysis.subPhase,
+        strength: Number(analysis.strength) || 0,
+        targetPrice: Number(analysis.targetPrice) || price * 1.1,
+        cutLossPrice: Number(analysis.cutLossPrice) || price * 0.95,
+        support: Number(analysis.supportLevel) || price * 0.95,
+        resistance: Number(analysis.resistanceLevel) || price * 1.1,
+        ma200: metrics.ma200 ? Number(metrics.ma200) : null,
+        rsi14: metrics.rsi14 ? Number(metrics.rsi14) : null,
+        foreignNetFlow: foreignNetFlow || null,
+        marketBreadthPercent: null // Not available on detail page
+      });
+    } catch (e) {
+      console.error('Error generating recommendation:', e);
+    }
+
     return {
       stock: {
         symbol: ticker.symbol,
@@ -119,7 +145,8 @@ export const load: PageServerLoad = async ({ params, platform }) => {
           foreignBuy: f.foreignBuy || 0,
           foreignSell: f.foreignSell || 0,
           foreignNet: f.foreignNet || 0
-        }))
+        })),
+      recommendation
     };
   } catch (err) {
     console.error('Error loading stock:', err);

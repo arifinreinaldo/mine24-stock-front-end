@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import type { WyckoffPhase } from '$lib/server/db/schema';
+  import type { StockRecommendation } from '$lib/server/analysis/recommendation';
   import WyckoffBadge from './WyckoffBadge.svelte';
 
   export let symbol: string;
@@ -13,6 +14,35 @@
   export let strength: number;
   export let targetPrice: number;
   export let cutLossPrice: number;
+  export let recommendation: StockRecommendation | null = null;
+
+  function getActionBadgeClass(action: string): string {
+    switch (action) {
+      case 'STRONG_BUY':
+        return 'bg-green-500/30 text-green-300 border-green-500/50';
+      case 'BUY':
+        return 'bg-green-500/20 text-green-400 border-green-500/30';
+      case 'HOLD':
+        return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+      case 'SELL':
+        return 'bg-red-500/20 text-red-400 border-red-500/30';
+      case 'STRONG_SELL':
+        return 'bg-red-500/30 text-red-300 border-red-500/50';
+      default:
+        return 'bg-gray-500/20 text-gray-400';
+    }
+  }
+
+  function getActionShortLabel(action: string): string {
+    switch (action) {
+      case 'STRONG_BUY': return 'Strong Buy';
+      case 'BUY': return 'Buy';
+      case 'HOLD': return 'Hold';
+      case 'SELL': return 'Sell';
+      case 'STRONG_SELL': return 'Strong Sell';
+      default: return action;
+    }
+  }
 
   const dispatch = createEventDispatcher<{ delete: { symbol: string } }>();
 
@@ -93,16 +123,28 @@
   </div>
 
   <div class="pt-3 border-t border-slate-700">
-    <!-- Position type indicator -->
-    <div class="flex items-center gap-1.5 mb-2">
-      {#if isLongPosition}
-        <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">LONG</span>
-        <span class="text-[10px] text-slate-500" title="Buy and hold - profit when price rises">Buy recommendation</span>
-      {:else}
-        <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">SHORT</span>
-        <span class="text-[10px] text-slate-500" title="Sell/avoid - profit when price falls">Sell recommendation</span>
-      {/if}
-    </div>
+    <!-- Recommendation Badge -->
+    {#if recommendation}
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[10px] font-bold px-2 py-0.5 rounded border {getActionBadgeClass(recommendation.action)}">
+          {getActionShortLabel(recommendation.action)}
+        </span>
+        <span class="text-[10px] text-slate-500">
+          R:R <span class="font-medium {recommendation.riskRewardRatio >= 2 ? 'text-green-400' : recommendation.riskRewardRatio >= 1 ? 'text-yellow-400' : 'text-red-400'}">{recommendation.riskRewardRatio.toFixed(1)}:1</span>
+        </span>
+      </div>
+    {:else}
+      <!-- Fallback Position type indicator -->
+      <div class="flex items-center gap-1.5 mb-2">
+        {#if isLongPosition}
+          <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">LONG</span>
+          <span class="text-[10px] text-slate-500" title="Buy and hold - profit when price rises">Buy recommendation</span>
+        {:else}
+          <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">SHORT</span>
+          <span class="text-[10px] text-slate-500" title="Sell/avoid - profit when price falls">Sell recommendation</span>
+        {/if}
+      </div>
+    {/if}
 
     <div class="grid grid-cols-2 gap-3">
       <div>

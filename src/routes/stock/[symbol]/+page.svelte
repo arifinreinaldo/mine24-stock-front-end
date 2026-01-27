@@ -4,6 +4,7 @@
   import ForeignFlowChart from '$lib/components/ForeignFlowChart.svelte';
   import IndicatorPanel from '$lib/components/IndicatorPanel.svelte';
   import WyckoffBadge from '$lib/components/WyckoffBadge.svelte';
+  import RecommendationWidget from '$lib/components/RecommendationWidget.svelte';
 
   export let data: PageData;
 
@@ -11,6 +12,7 @@
   $: prices = data.prices;
   $: metrics = data.metrics;
   $: foreignFlow = data.foreignFlow;
+  $: recommendation = data.recommendation;
 
   // Determine if this is a bullish (long) or bearish (short) phase
   $: isLongPosition = stock.phase === 'accumulation' || stock.phase === 'markup';
@@ -74,22 +76,31 @@
     </div>
   </div>
 
-  <!-- Position Type Indicator -->
-  <div class="card">
-    <div class="flex items-center gap-3">
-      {#if isLongPosition}
-        <span class="text-sm font-medium px-3 py-1 rounded bg-emerald-500/20 text-emerald-400">LONG POSITION</span>
-        <span class="text-sm text-slate-400" title="Buy and hold - profit when price rises">
-          Buy recommendation - targets are upside price levels
-        </span>
-      {:else}
-        <span class="text-sm font-medium px-3 py-1 rounded bg-red-500/20 text-red-400">SHORT POSITION</span>
-        <span class="text-sm text-slate-400" title="Sell/avoid - profit when price falls">
-          Sell recommendation - targets are downside price levels
-        </span>
-      {/if}
+  <!-- Recommendation Widget -->
+  {#if recommendation}
+    <RecommendationWidget
+      {recommendation}
+      symbol={stock.symbol}
+      currentPrice={stock.price}
+    />
+  {:else}
+    <!-- Fallback Position Type Indicator -->
+    <div class="card">
+      <div class="flex items-center gap-3">
+        {#if isLongPosition}
+          <span class="text-sm font-medium px-3 py-1 rounded bg-emerald-500/20 text-emerald-400">LONG POSITION</span>
+          <span class="text-sm text-slate-400" title="Buy and hold - profit when price rises">
+            Buy recommendation - targets are upside price levels
+          </span>
+        {:else}
+          <span class="text-sm font-medium px-3 py-1 rounded bg-red-500/20 text-red-400">SHORT POSITION</span>
+          <span class="text-sm text-slate-400" title="Sell/avoid - profit when price falls">
+            Sell recommendation - targets are downside price levels
+          </span>
+        {/if}
+      </div>
     </div>
-  </div>
+  {/if}
 
   <!-- Key Metrics -->
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
